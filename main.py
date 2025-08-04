@@ -4,6 +4,8 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 import os
 from dotenv import load_dotenv
+import datetime
+import csv
 load_dotenv()
 
 CAPTCHA_API_KEY = os.getenv('CAPTCHA_API_KEY')
@@ -28,7 +30,7 @@ def solve_captcha(image_path):
         time.sleep(5)
     raise Exception('2Captcha等候超時')
 
-def book_registration():
+def book_registration(date: str, doctor: str):
     driver = webdriver.Chrome()
     driver.get('https://webreg.timing-pharmacy.com/MobileReg.aspx?code=3805340179&FormType=1')
     # ...填入基本資料的自動化...
@@ -65,5 +67,34 @@ def book_registration():
     print('已自動掛號完成')
     driver.quit()
 
+def read_appointments(csv_file):
+    appointments = []
+    with open(csv_file, newline='', encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            # 預設 doctor 欄位必填
+            date = datetime.datetime.strptime(row['date'], '%Y-%m-%d').date()
+            doctor = row['doctor']
+            appointments.append({'date': date, 'doctor': doctor})
+    return appointments
+
+def check_and_book(csv_file):
+    today = datetime.date.today()
+    target_date = today + datetime.timedelta(days=30)
+    appointments = read_appointments(csv_file)
+
+    # 找出所有今天需要掛號的醫師（可能有多筆）
+    targets = [a for a in appointments if a['date'] == target_date]
+
+    if targets:
+        for item in targets:
+            doctor = item['doctor']
+            print(f"今天要幫 {doctor} 預約 {target_date}，啟動自動掛號流程...")
+            # TODO: 呼叫你的自動掛號主流程並指定醫師
+            book_registration(target_date, doctor)
+    else:
+        print(f"今天沒有需要掛號的目標日（{target_date}）")
+
+
 if __name__ == "__main__":
-    book_registration()
+    check_and_book('appointments.csv')
